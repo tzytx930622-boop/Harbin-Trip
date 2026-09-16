@@ -136,7 +136,11 @@ html.night .timing{background:rgba(96,165,250,.12);color:#93c5fd}
 .btn-map{font-size:12.5px;padding:8px 16px;border-radius:999px;border:1px solid var(--line);background:var(--bg-elev);color:var(--ink-2);font-weight:600;box-shadow:var(--card-shadow);cursor:pointer;font-family:inherit}
 .btn-map:active{transform:scale(.97)}
 .btn-map:disabled{opacity:.6}
-.leaflet-container{font:12px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.live-pin{background:none;border:none}
+.live-pin-box{width:30px;height:30px;border-radius:9px;background:#fff;border:2.6px solid #888;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;box-shadow:0 1px 5px rgba(0,0,0,.28);box-sizing:border-box;line-height:1}
+.amap-iw{font:12.5px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;min-width:140px;padding:2px 2px 3px}
+.amap-iw b{font-size:13px}
+.amap-iw a{color:#c0392b;font-weight:600;text-decoration:none}
 .advanced{margin-top:7px;font-size:12px;color:var(--warn);font-weight:600}
 .ok-badge{margin-top:7px;font-size:12px;color:var(--ok);font-weight:600}
 .overnight{margin-top:10px;font-size:12.5px;color:var(--ink-2);background:var(--line-2);border-radius:10px;padding:9px 12px}
@@ -321,7 +325,7 @@ html.night .timing{background:rgba(96,165,250,.12);color:#93c5fd}
     .catch(function(){});
 })();
 
-// ---- 地图标签页切换（无需联网）----
+// ---- 地图标签页切换（无需联网；在线地图打开时改为切换高亮与缩放）----
 (function(){
   var btns=document.querySelectorAll('.map-tab');var panels=document.querySelectorAll('.map-panel');
   btns.forEach(function(b){
@@ -329,48 +333,108 @@ html.night .timing{background:rgba(96,165,250,.12);color:#93c5fd}
       btns.forEach(function(x){x.classList.remove('active');x.setAttribute('aria-selected','false');});
       panels.forEach(function(p){p.style.display='none';});
       b.classList.add('active');b.setAttribute('aria-selected','true');
-      var d=b.getAttribute('data-day');
+      var d=+b.getAttribute('data-day');
       var pn=document.querySelector('.map-panel[data-day="'+d+'"]');
-      if(pn){pn.style.display='block';var lk=pn.querySelector('.live-map');if(lk && lk._leaflet_id){setTimeout(function(){lk._leafletMap.invalidateSize&&lk._leafletMap.invalidateSize();},50);}}
+      if(pn)pn.style.display='block';
+      if(window.__liveMap&&window.__liveMap.isOpen()){window.__liveMap.highlight(d);window.__liveMap.fit(d);}
     });
   });
 })();
 
-// ---- 在线交互地图（点击按钮加载 Leaflet；按当前选中日期渲染整周所有点 + 当前选中天连线高亮）----
+// ---- 在线交互地图（高德官方 JS API 2.0 矢量底图 + 手绘图同款 pin 设计 + 按选中日期高亮缩放）----
 (function(){
   var btn=document.getElementById('liveMapBtn');
   if(!btn)return;
-  var map=null,loaded=false;
-    btn.onclick=function(){
-    if(loaded && map){try{map.remove();}catch(e){}map=null;loaded=false;var h=document.getElementById('liveMapHost');if(h)h.remove();btn.textContent='🌐 在线交互地图（可拖动缩放）';return;}
+  var map=null,byDay={};
+  var AMAP_KEY='fea1ac4505d21e39f095b88cdd4fd4dd';
+  var AMAP_SCODE='43f7687d3d98e3bf5e4a9981bd51844e';
+  function activeDay(){
+    var a=document.querySelector('.map-tab.active');
+    return a?(+a.getAttribute('data-day')||0):0;
+  }
+  function highlight(dno){
+    [{"n": 1, "c": "#8E7DBE", "pts": [[45.6234, 126.25, "哈尔滨太平国际机场 T2", "https://uri.amap.com/navigation?to=126.25,45.6234,哈尔滨太平国际机场 T2&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7637, 126.6293, "哈尔滨站", "https://uri.amap.com/navigation?to=126.6293,45.7637,哈尔滨站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 2, "c": "#E63946", "pts": [[45.771, 126.617, "道里菜市场", "https://uri.amap.com/navigation?to=126.617,45.771,道里菜市场&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7758, 126.6196, "圣索菲亚广场", "https://uri.amap.com/navigation?to=126.6196,45.7758,圣索菲亚广场&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.771, 126.6128, "中央大街", "https://uri.amap.com/navigation?to=126.6128,45.771,中央大街&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6098, "防洪纪念塔", "https://uri.amap.com/navigation?to=126.6098,45.7748,防洪纪念塔&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.776, 126.6083, "斯大林公园", "https://uri.amap.com/navigation?to=126.6083,45.776,斯大林公园&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7947, 126.5929, "极地公园（太阳岛站）", "https://uri.amap.com/navigation?to=126.5929,45.7947,极地公园（太阳岛站）&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7854, 126.5868, "咩咩农场", "https://uri.amap.com/navigation?to=126.5868,45.7854,咩咩农场&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.8296, 126.5574, "哈尔滨大剧院", "https://uri.amap.com/navigation?to=126.5574,45.8296,哈尔滨大剧院&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7612, 126.642, "知吾·煮 关东煮", "https://uri.amap.com/navigation?to=126.642,45.7612,知吾·煮 关东煮&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 3, "c": "#F4A261", "pts": [[45.8823, 126.5678, "哈尔滨融创乐园", "https://uri.amap.com/navigation?to=126.5678,45.8823,哈尔滨融创乐园&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.8795, 126.565, "辛焖道鸡公煲", "https://uri.amap.com/navigation?to=126.565,45.8795,辛焖道鸡公煲&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 4, "c": "#2A9D8F", "pts": [[45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7637, 126.6293, "哈尔滨站", "https://uri.amap.com/navigation?to=126.6293,45.7637,哈尔滨站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.3366, 127.1587, "帽儿山西站", "https://uri.amap.com/navigation?to=127.1587,45.3366,帽儿山西站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.3105, 127.0628, "皇家鹿苑", "https://uri.amap.com/navigation?to=127.0628,45.3105,皇家鹿苑&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7646, 126.6394, "师大夜市", "https://uri.amap.com/navigation?to=126.6394,45.7646,师大夜市&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 5, "c": "#5B8DEF", "pts": [[45.774, 126.619, "红专街早市", "https://uri.amap.com/navigation?to=126.619,45.774,红专街早市&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7637, 126.6293, "哈尔滨站", "https://uri.amap.com/navigation?to=126.6293,45.7637,哈尔滨站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7857, 126.687, "哈药六版画博物馆", "https://uri.amap.com/navigation?to=126.687,45.7857,哈药六版画博物馆&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [46.5815, 125.0064, "大庆西站", "https://uri.amap.com/navigation?to=125.0064,46.5815,大庆西站&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}].forEach(function(day){
+      var g=byDay[day.n];if(!g)return;
+      var on=(!dno)||(+day.n===dno);
+      g.ov.forEach(function(o){
+        if(o._isHalo){o.setOptions({strokeOpacity:on?0.18:0.05});}
+        else if(o._isLine){o.setOptions({strokeOpacity:on?0.95:0.2});}
+        else{try{o.setOpacity(on?1:0.25)}catch(e){if(on)o.show();else o.hide()}}
+      });
+    });
+  }
+  function fitDay(dno){
+    if(!map)return;
+    var mk=[];
+    if(dno){var g=byDay[dno];mk=g?g.mk:[];}
+    else [{"n": 1, "c": "#8E7DBE", "pts": [[45.6234, 126.25, "哈尔滨太平国际机场 T2", "https://uri.amap.com/navigation?to=126.25,45.6234,哈尔滨太平国际机场 T2&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7637, 126.6293, "哈尔滨站", "https://uri.amap.com/navigation?to=126.6293,45.7637,哈尔滨站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 2, "c": "#E63946", "pts": [[45.771, 126.617, "道里菜市场", "https://uri.amap.com/navigation?to=126.617,45.771,道里菜市场&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7758, 126.6196, "圣索菲亚广场", "https://uri.amap.com/navigation?to=126.6196,45.7758,圣索菲亚广场&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.771, 126.6128, "中央大街", "https://uri.amap.com/navigation?to=126.6128,45.771,中央大街&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6098, "防洪纪念塔", "https://uri.amap.com/navigation?to=126.6098,45.7748,防洪纪念塔&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.776, 126.6083, "斯大林公园", "https://uri.amap.com/navigation?to=126.6083,45.776,斯大林公园&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7947, 126.5929, "极地公园（太阳岛站）", "https://uri.amap.com/navigation?to=126.5929,45.7947,极地公园（太阳岛站）&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7854, 126.5868, "咩咩农场", "https://uri.amap.com/navigation?to=126.5868,45.7854,咩咩农场&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.8296, 126.5574, "哈尔滨大剧院", "https://uri.amap.com/navigation?to=126.5574,45.8296,哈尔滨大剧院&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7612, 126.642, "知吾·煮 关东煮", "https://uri.amap.com/navigation?to=126.642,45.7612,知吾·煮 关东煮&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 3, "c": "#F4A261", "pts": [[45.8823, 126.5678, "哈尔滨融创乐园", "https://uri.amap.com/navigation?to=126.5678,45.8823,哈尔滨融创乐园&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.8795, 126.565, "辛焖道鸡公煲", "https://uri.amap.com/navigation?to=126.565,45.8795,辛焖道鸡公煲&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 4, "c": "#2A9D8F", "pts": [[45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7637, 126.6293, "哈尔滨站", "https://uri.amap.com/navigation?to=126.6293,45.7637,哈尔滨站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.3366, 127.1587, "帽儿山西站", "https://uri.amap.com/navigation?to=127.1587,45.3366,帽儿山西站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.3105, 127.0628, "皇家鹿苑", "https://uri.amap.com/navigation?to=127.0628,45.3105,皇家鹿苑&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7646, 126.6394, "师大夜市", "https://uri.amap.com/navigation?to=126.6394,45.7646,师大夜市&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 5, "c": "#5B8DEF", "pts": [[45.774, 126.619, "红专街早市", "https://uri.amap.com/navigation?to=126.619,45.774,红专街早市&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7637, 126.6293, "哈尔滨站", "https://uri.amap.com/navigation?to=126.6293,45.7637,哈尔滨站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7857, 126.687, "哈药六版画博物馆", "https://uri.amap.com/navigation?to=126.687,45.7857,哈药六版画博物馆&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [46.5815, 125.0064, "大庆西站", "https://uri.amap.com/navigation?to=125.0064,46.5815,大庆西站&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}].forEach(function(x){var g=byDay[x.n];if(g)mk=mk.concat(g.mk)});
+    if(mk.length)map.setFitView(mk,false,[36,36,36,36],14);
+  }
+  window.__liveMap={isOpen:function(){return !!map},highlight:highlight,fit:fitDay};
+  btn.onclick=function(){
+    if(map){
+      try{map.destroy();}catch(e){}
+      map=null;byDay={};
+      var h=document.getElementById('liveMapHost');if(h)h.remove();
+      var ps=document.querySelector('.map-panels');if(ps)ps.style.display='';
+      btn.textContent='🌐 在线交互地图（可拖动缩放）';return;
+    }
     if(!navigator.onLine){btn.textContent='⚠️ 当前离线，无法加载在线地图';return;}
     btn.disabled=true;btn.textContent='地图加载中…';
-    var css=document.createElement('link');css.rel='stylesheet';css.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
-    var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+    window._AMapSecurityConfig={securityJsCode:AMAP_SCODE};
+    var s=document.createElement('script');
+    s.src='https://webapi.amap.com/maps?v=2.0&key='+AMAP_KEY;
     s.onload=function(){
       try{
-        // 在所有面板背后插入一个全宽 live 容器；地图跨日期切换
+        if(typeof AMap==='undefined')throw new Error('AMap unavailable');
         var host=document.createElement('div');
         host.id='liveMapHost';host.className='live-map';
-        host.style.cssText='display:block;width:100%;height:380px;border-radius:14px;overflow:hidden;margin-top:10px;';
-        var firstPanel=document.querySelector('.map-panel');
-        firstPanel.parentNode.insertBefore(host,firstPanel);
-        map=L.map('liveMapHost',{attributionControl:false,zoomControl:true});
-        L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',{subdomains:'1234',maxZoom:18}).addTo(map);
-        var all=[];
+        host.style.cssText='display:block;width:100%;height:420px;border-radius:14px;overflow:hidden;margin-top:10px;';
+        var panels=document.querySelector('.map-panels');
+        panels.parentNode.insertBefore(host,panels);
+        panels.style.display='none';
+        map=new AMap.Map('liveMapHost',{viewMode:'2D',zoom:12,resizeEnable:true});
         [{"n": 1, "c": "#8E7DBE", "pts": [[45.6234, 126.25, "哈尔滨太平国际机场 T2", "https://uri.amap.com/navigation?to=126.25,45.6234,哈尔滨太平国际机场 T2&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7637, 126.6293, "哈尔滨站", "https://uri.amap.com/navigation?to=126.6293,45.7637,哈尔滨站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 2, "c": "#E63946", "pts": [[45.771, 126.617, "道里菜市场", "https://uri.amap.com/navigation?to=126.617,45.771,道里菜市场&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7758, 126.6196, "圣索菲亚广场", "https://uri.amap.com/navigation?to=126.6196,45.7758,圣索菲亚广场&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.771, 126.6128, "中央大街", "https://uri.amap.com/navigation?to=126.6128,45.771,中央大街&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6098, "防洪纪念塔", "https://uri.amap.com/navigation?to=126.6098,45.7748,防洪纪念塔&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.776, 126.6083, "斯大林公园", "https://uri.amap.com/navigation?to=126.6083,45.776,斯大林公园&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7947, 126.5929, "极地公园（太阳岛站）", "https://uri.amap.com/navigation?to=126.5929,45.7947,极地公园（太阳岛站）&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7854, 126.5868, "咩咩农场", "https://uri.amap.com/navigation?to=126.5868,45.7854,咩咩农场&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.8296, 126.5574, "哈尔滨大剧院", "https://uri.amap.com/navigation?to=126.5574,45.8296,哈尔滨大剧院&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7612, 126.642, "知吾·煮 关东煮", "https://uri.amap.com/navigation?to=126.642,45.7612,知吾·煮 关东煮&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 3, "c": "#F4A261", "pts": [[45.8823, 126.5678, "哈尔滨融创乐园", "https://uri.amap.com/navigation?to=126.5678,45.8823,哈尔滨融创乐园&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.8795, 126.565, "辛焖道鸡公煲", "https://uri.amap.com/navigation?to=126.565,45.8795,辛焖道鸡公煲&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 4, "c": "#2A9D8F", "pts": [[45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7637, 126.6293, "哈尔滨站", "https://uri.amap.com/navigation?to=126.6293,45.7637,哈尔滨站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.3366, 127.1587, "帽儿山西站", "https://uri.amap.com/navigation?to=127.1587,45.3366,帽儿山西站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.3105, 127.0628, "皇家鹿苑", "https://uri.amap.com/navigation?to=127.0628,45.3105,皇家鹿苑&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7646, 126.6394, "师大夜市", "https://uri.amap.com/navigation?to=126.6394,45.7646,师大夜市&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}, {"n": 5, "c": "#5B8DEF", "pts": [[45.774, 126.619, "红专街早市", "https://uri.amap.com/navigation?to=126.619,45.774,红专街早市&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7748, 126.6148, "民宿 · 万泰国际", "https://uri.amap.com/navigation?to=126.6148,45.7748,民宿 · 万泰国际&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7637, 126.6293, "哈尔滨站", "https://uri.amap.com/navigation?to=126.6293,45.7637,哈尔滨站&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [45.7857, 126.687, "哈药六版画博物馆", "https://uri.amap.com/navigation?to=126.687,45.7857,哈药六版画博物馆&mode=car&policy=1&src=harbintrip&coordinate=gaode"], [46.5815, 125.0064, "大庆西站", "https://uri.amap.com/navigation?to=125.0064,46.5815,大庆西站&mode=car&policy=1&src=harbintrip&coordinate=gaode"]]}].forEach(function(day){
-          var ll=day.pts.map(function(p){return[p[0],p[1]]});
-          if(ll.length>=2)L.polyline(ll,{color:day.c,weight:4,opacity:.9}).addTo(map);
+          var ov=[],mk=[];
+          var ll=day.pts.map(function(p){return[p[1],p[0]]});
+          if(ll.length>=2){
+            var halo=new AMap.Polyline({path:ll,strokeColor:day.c,strokeWeight:10,strokeOpacity:.18,lineCap:'round',lineJoin:'round',zIndex:40});
+            halo._isHalo=true;halo.setMap(map);ov.push(halo);
+            var line=new AMap.Polyline({path:ll,strokeColor:day.c,strokeWeight:3,strokeOpacity:.95,strokeStyle:'dashed',strokeDasharray:[7,6],lineCap:'round',zIndex:50});
+            line._isLine=true;line.setMap(map);ov.push(line);
+          }
           day.pts.forEach(function(p,k){
-            var isHome=(p[2] && p[2].indexOf('🏠')>=0) || (k===0 && day.pts.length<=3);
-            var m=L.circleMarker([p[0],p[1]],{radius:isHome?10:7,color:day.c,weight:2.5,fillColor:isHome?'#b8842f':'#fff',fillOpacity:1}).addTo(map);
-            m.bindPopup('<b>D'+day.n+' · '+(k+1)+'. '+p[2]+'</b><br><a href="'+p[3]+'" target="_blank" rel="noopener">📍 高德导航</a>');
-            all.push([p[0],p[1]]);
+            var isHome=p[2]&&p[2].indexOf('民宿')>=0;
+            var bc=isHome?'#b8842f':day.c;
+            var inner=isHome?'🏠':String(k+1);
+            var m=new AMap.Marker({
+              position:[p[1],p[0]],
+              anchor:'center',
+              content:'<div class="live-pin-box" style="border-color:'+bc+';color:'+bc+'">'+inner+'</div>',
+              zIndex:110
+            });
+            m.setMap(map);
+            (function(pt,color,dno2,label){
+              m.on('click',function(){
+                var iw=new AMap.InfoWindow({
+                  content:'<div class="amap-iw"><b style="color:'+color+'">D'+dno2+' · '+label+'</b><br><a href="'+pt[3]+'" target="_blank" rel="noopener">📍 高德导航</a></div>',
+                  offset:new AMap.Pixel(0,-18)
+                });
+                iw.open(map,[pt[1],pt[0]]);
+              });
+            })(p,bc,day.n,(k+1)+'. '+p[2]);
+            ov.push(m);mk.push(m);
           });
+          byDay[day.n]={ov:ov,mk:mk};
         });
-        if(all.length)map.fitBounds(all,{padding:[30,30]});
-        loaded=true;btn.disabled=false;btn.textContent='🎨 关闭在线地图（切回手绘）';
+        var d0=activeDay();
+        highlight(d0);fitDay(d0);
+        btn.disabled=false;btn.textContent='🎨 关闭在线地图（切回手绘）';
       }catch(e){
+        if(map){try{map.destroy();}catch(e2){}map=null;}
+        byDay={};
+        var h=document.getElementById('liveMapHost');if(h)h.remove();
+        var ps=document.querySelector('.map-panels');if(ps)ps.style.display='';
         btn.disabled=false;btn.textContent='⚠️ 地图初始化失败，继续用手绘图';
       }
     };
