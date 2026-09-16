@@ -16,6 +16,8 @@ a{color:inherit;text-decoration:none}
 .top-bar h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.5px}
 .top-bar .sub{font-size:11px;color:var(--ink-3);margin-top:2px}
 .badge{font-size:11px;padding:4px 9px;border-radius:999px;background:var(--line-2);color:var(--ink-2)}
+button.badge{border:none;font-family:inherit;cursor:pointer;transition:transform .12s}
+button.badge:active{transform:scale(.93)}
 .hero{margin:16px 0;padding:20px 20px 16px;border-radius:18px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:var(--card-shadow);position:relative;overflow:hidden}
 .hero::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;background:rgba(255,255,255,.08);border-radius:50%}
 .hero-label{font-size:12px;opacity:.9;letter-spacing:2px}
@@ -137,7 +139,7 @@ html.night .timing{background:rgba(96,165,250,.12);color:#93c5fd}
     <h1>哈尔滨旅行手册</h1>
     <div class="sub">2026.09.19（周六）→ 09.23（周三）· 5 天 · 2 人 · 民宿住至 09.24 12:00</div>
   </div>
-  <span class="badge" id="themeBadge">自动</span>
+  <button class="badge theme-btn" id="themeBadge" type="button" title="点击切换配色：自动 → 日间 → 夜间">🌗 自动</button>
 </div>
 
 <div class="wrap">
@@ -224,14 +226,30 @@ html.night .timing{background:rgba(96,165,250,.12);color:#93c5fd}
     var g=function(n){var v=null;for(var i=0;i<p.length;i++){if(p[i].type===n)v=p[i].value}return v||'0'};
     return {y:+g('year'),mo:+g('month')-1,d:+g('day'),h:+g('hour')%24,mi:+g('minute'),s:+g('second')};
   }
-  try{
-    var np=nowParts(),hh=np.h;
-    if(hh>=21||hh<6)document.documentElement.classList.add('night');
+  // ---- 配色：自动 / 手动日间 / 手动夜间（点顶栏徽章循环切换；偏好只存本机，纯显示偏好不影响他人） ----
+  var themeMode='auto';
+  try{var sm=localStorage.getItem('tripTheme');if(sm==='day'||sm==='night')themeMode=sm}catch(e){}
+  function applyTheme(){
+    var hh=nowParts().h;
+    var night=(themeMode==='night')||(themeMode==='auto'&&(hh>=21||hh<6));
+    document.documentElement.classList.toggle('night',night);
     var badge=document.getElementById('themeBadge');
-    if(badge)badge.textContent=(hh>=6&&hh<18)?'日间':((hh>=18&&hh<21)?'傍晚':'夜间');
-  }catch(e){}
+    if(badge){
+      var label={'auto':'🌗 自动','day':'☀️ 日间','night':'🌙 夜间'}[themeMode];
+      if(themeMode==='auto')label+=(hh>=21||hh<6)?'·夜':(hh>=18?'·晚':'·日');
+      badge.textContent=label;
+    }
+  }
+  applyTheme();
+  var themeBtn=document.getElementById('themeBadge');
+  if(themeBtn)themeBtn.onclick=function(){
+    themeMode=(themeMode==='auto')?'day':((themeMode==='day')?'night':'auto');
+    try{localStorage.setItem('tripTheme',themeMode)}catch(e){}
+    applyTheme();
+  };
   var EV=[{"d": "2026-09-19", "t": "12:10", "n": "GJ8787 起飞（深圳宝安 T3）"}, {"d": "2026-09-19", "t": "17:55", "n": "抵达哈尔滨太平 T2"}, {"d": "2026-09-19", "t": "20:00", "n": "民宿自助入住"}, {"d": "2026-09-20", "t": "10:30", "n": "道里菜市场早餐"}, {"d": "2026-09-20", "t": "15:00", "n": "极地公园 + 咩咩农场"}, {"d": "2026-09-20", "t": "18:00", "n": "知吾·煮晚餐"}, {"d": "2026-09-21", "t": "10:30", "n": "融创乐园开园"}, {"d": "2026-09-22", "t": "08:04", "n": "D8515 发车（哈尔滨站）"}, {"d": "2026-09-22", "t": "18:00", "n": "师大夜市（仅无雨时）"}, {"d": "2026-09-23", "t": "06:30", "n": "红专街早市"}, {"d": "2026-09-23", "t": "09:00", "n": "哈药六版画博物馆开馆"}, {"d": "2026-09-23", "t": "13:15", "n": "D7981 发车（返大庆）"}];
   function tick(){
+    applyTheme();
     var np=nowParts();
     var nowUtc=Date.UTC(np.y,np.mo,np.d,np.h,np.mi,np.s);
     var next=null;
