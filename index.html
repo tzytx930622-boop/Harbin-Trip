@@ -301,7 +301,7 @@ html.night .timing{background:rgba(96,165,250,.12);color:#93c5fd}
   function tick(){
     applyTheme();
     var np=nowParts();
-    var nowUtc=Date.UTC(np.y,np.mo,np.d,np.h,np.mi,np.s);
+    var nowUtc=Date.UTC(np.y,np.mo,np.d,np.h,np.mi,np.s)-8*3600*1000;
     var next=null;
     for(var i=0;i<EV.length;i++){var u=parseInTZ(EV[i].d,EV[i].t);if(u>nowUtc+400){next={u:u,e:EV[i]};break}}
     var elN=document.getElementById('nextEvent'),elT=document.getElementById('nextEventTime');
